@@ -185,13 +185,14 @@ class ProductsCatalogPage {
       await this.page.keyboard.press('Enter').catch(() => undefined);
     }
 
-    // Wait for either a results container OR the product text itself.
-    // Some UIs render cards without semantic table/grid/list roles.
     const resultsRegion = this.page
       .getByRole('table')
       .or(this.page.getByRole('grid'))
       .or(this.page.getByRole('list'))
       .or(this.page.locator('[data-testid*="catalog" i], [data-testid*="product" i], [class*="catalog" i], [class*="product" i], main'));
+
+    // Wait for the catalog surface to render (table/grid/list/main), then locate the product by text.
+    await expect(resultsRegion.first()).toBeVisible({ timeout: 45_000 });
 
     const rowOrItem = this.page
       .getByRole('row', { name: nameRe })
@@ -200,20 +201,6 @@ class ProductsCatalogPage {
       .or(this.page.getByRole('link', { name: nameRe }))
       .or(this.page.getByRole('button', { name: nameRe }))
       .or(this.page.getByText(nameRe, { exact: false }));
-
-    await expect
-      .poll(async () => {
-        const regionCount = await resultsRegion.count();
-        const itemCount = await rowOrItem.count();
-        return regionCount + itemCount;
-      }, {
-        timeout: 45_000,
-      })
-      .toBeGreaterThan(0);
-
-    if ((await resultsRegion.count()) > 0) {
-      await expect(resultsRegion.first()).toBeVisible({ timeout: 45_000 });
-    }
 
     await expect(rowOrItem.first()).toBeVisible({ timeout: 45_000 });
 
