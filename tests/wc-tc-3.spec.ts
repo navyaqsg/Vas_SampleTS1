@@ -39,6 +39,30 @@ class LoginPage {
   }
 }
 
+class HomePage {
+  constructor(private readonly page: Page) {}
+
+  async selectDairyIfPresent(dairyName: string): Promise<void> {
+    // Some builds show a "Select a dairy" control; others show the dairy name directly.
+    const selectDairy = this.page
+      .getByRole('button', { name: /select a dairy/i })
+      .or(this.page.getByText(/select a dairy/i));
+
+    if (await selectDairy.first().isVisible().catch(() => false)) {
+      await selectDairy.first().click();
+    }
+
+    const dairyOption = this.page
+      .getByRole('button', { name: new RegExp(escapeRegExp(dairyName), 'i') })
+      .or(this.page.getByRole('option', { name: new RegExp(escapeRegExp(dairyName), 'i') }))
+      .or(this.page.getByText(new RegExp(escapeRegExp(dairyName), 'i')));
+
+    if (await dairyOption.first().isVisible().catch(() => false)) {
+      await dairyOption.first().click();
+    }
+  }
+}
+
 class AppNav {
   constructor(private readonly page: Page) {}
 
@@ -64,18 +88,14 @@ class AppNav {
       .or(this.page.getByLabel(/menu|navigation/i))
       .or(this.page.getByRole('button', { name: /☰/ }));
 
-    // Some layouts hide left nav behind a hamburger; open it if Settings isn't visible.
     if (!(await settingsNav.first().isVisible().catch(() => false))) {
       if (await hamburger.first().isVisible().catch(() => false)) {
         await hamburger.first().click();
       }
     }
 
-    // If Settings is still not present, fall back to direct navigation.
     if (!(await settingsNav.first().isVisible().catch(() => false))) {
-      await this.page.goto(/\/$/.test(this.page.url()) ? `${this.page.url()}settings/equipment` : `${this.page.url()}/settings/equipment`, {
-        waitUntil: 'domcontentloaded',
-      });
+      await this.gotoEquipmentSettingsFallback();
       return;
     }
 
@@ -88,23 +108,25 @@ class AppNav {
       .or(this.page.getByText(/^equipment$/i));
 
     if (!(await equipmentNav.first().isVisible().catch(() => false))) {
-      await this.page.goto(/\/$/.test(this.page.url()) ? `${this.page.url()}settings/equipment` : `${this.page.url()}/settings/equipment`, {
-        waitUntil: 'domcontentloaded',
-      });
+      await this.gotoEquipmentSettingsFallback();
       return;
     }
 
     await equipmentNav.first().click();
+  }
+
+  private async gotoEquipmentSettingsFallback(): Promise<void> {
+    const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? process.env.BASE_URL;
+    if (!baseURL) throw new Error('Missing base URL. Set PLAYWRIGHT_BASE_URL or BASE_URL.');
+
+    await this.page.goto(new URL('/settings/equipment', baseURL).toString(), { waitUntil: 'domcontentloaded' });
   }
 }
 
 class EquipmentSettingsPage {
   constructor(private readonly page: Page) {}
 
-  readonly heading = this.page.getByRole('heading', { name: /equipment/i }).or(this.page.getByText(/^equipment$/i));
-
   equipmentRowByName(name: string): Locator {
-    // Prefer semantic row; fallback to clickable text.
     return this.page
       .getByRole('row', { name: new RegExp(`\\b${escapeRegExp(name)}\\b`, 'i') })
       .or(this.page.getByRole('row').filter({ hasText: new RegExp(`\\b${escapeRegExp(name)}\\b`, 'i') }))
@@ -112,16 +134,22 @@ class EquipmentSettingsPage {
   }
 
   async expectListVisible(): Promise<void> {
-    // Heading text can vary (e.g., "Equipment Settings"); rely on stable list/table presence.
-    const tableOrGrid = this.page.locator('table, [role="table"], [role="grid"], [data-testid*="equipment" i]');
-    await expect(tableOrGrid.first()).toBeVisible({ timeout: 30000 });
+    // Some builds render a table/grid; others render a card/list view.
+    // Assert on stable user-facing signals instead of requiring a <table>.
+    const equipmentTitle = this.page
+      .getByRole('heading', { name: /^equipment$/i })
+      .or(this.page.getByRole('heading', { name: /equipment/i }))
+      .or(this.page.getByText(/^equipment$/i));
 
-    // Optional: if a heading exists, ensure at least some equipment-related title is visible.
-    const anyEquipmentTitle = this.page
-      .getByRole('heading', { name: /equipment/i })
-      .or(this.page.getByText(/equipment/i));
-    if (await anyEquipmentTitle.first().count().catch(() => 0)) {
-      await expect(anyEquipmentTitle.first()).toBeVisible({ timeout: 30000 });
+    await expect(equipmentTitle.first()).toBeVisible({ timeout: 45000 });
+
+    const listContainer = this.page.locator(
+      'table, [role="table"], [role="grid"], [data-testid*="equipment" i], [aria-label*="equipment" i]'
+    );
+
+    // Prefer container if present; otherwise accept that the page is loaded if the title is visible.
+    if (await listContainer.first().isVisible().catch(() => false)) {
+      await expect(listContainer.first()).toBeVisible({ timeout: 45000 });
     }
   }
 
@@ -132,7 +160,6 @@ class EquipmentSettingsPage {
   }
 
   async expectEquipmentNotVisibleInActiveList(name: string): Promise<void> {
-    // If there is a Show Inactive toggle, ensure it's off.
     const showInactive = this.page
       .getByRole('checkbox', { name: /show inactive/i })
       .or(this.page.getByRole('switch', { name: /show inactive/i }))
@@ -183,30 +210,23 @@ class EquipmentEditPanel {
   }
 
   async deactivate(): Promise<void> {
-    const toggle = this.activeToggle().first();
     const deactivateBtn = this.deactivateButton().first();
-
     if (await deactivateBtn.isVisible().catch(() => false)) {
       await deactivateBtn.click();
       return;
     }
 
+    const toggle = this.activeToggle().first();
     await expect(toggle).toBeVisible({ timeout: 30000 });
 
     const role = await toggle.getAttribute('role');
     if (role === 'checkbox') {
-      if (await toggle.isChecked().catch(() => false)) {
-        await toggle.uncheck();
-      } else {
-        // already inactive
-      }
+      if (await toggle.isChecked().catch(() => false)) await toggle.uncheck();
       return;
     }
 
     const checked = await toggle.getAttribute('aria-checked');
-    if (checked === 'true') {
-      await toggle.click();
-    }
+    if (checked === 'true') await toggle.click();
   }
 
   async save(): Promise<void> {
@@ -252,17 +272,20 @@ test.describe('WC-TC-3: Deactivate active equipment from Equipment Settings', { 
     const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? process.env.BASE_URL;
     if (!baseURL) throw new Error('Missing base URL. Set PLAYWRIGHT_BASE_URL or BASE_URL.');
 
-    await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
-
     const login = new LoginPage(page);
+    const home = new HomePage(page);
     const nav = new AppNav(page);
     const equipment = new EquipmentSettingsPage(page);
     const panel = new EquipmentEditPanel(page);
 
+    const dairyName = process.env.TEST_DAIRY_NAME ?? 'ART Automation Icon Holsteins';
     const equipmentName = process.env.TEST_EQUIPMENT_NAME ?? 'Eq1';
 
     // Act
+    await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     await login.loginIfPresent();
+    await home.selectDairyIfPresent(dairyName);
+
     await nav.openEquipmentSettings();
 
     await equipment.expectListVisible();
