@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const baseURL = process.env.BASE_URL || "https://opensource-demo.orangehrmlive.com";
+const baseURL = process.env.BASE_URL;
 
 export default defineConfig({
   testDir: "./tests",
