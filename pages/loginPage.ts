@@ -17,7 +17,7 @@ export class LoginPage {
   }
 
   async goto(): Promise<void> {
-    await this.page.goto("/login/");
+    await this.page.goto("/login?redirect=%2F");
   }
 
   async login({ username, password }: LoginCredentials): Promise<void> {
@@ -27,7 +27,7 @@ export class LoginPage {
   }
 
   async assertLoggedIn(): Promise<void> {
-    await expect(this.page).not.toHaveURL("https://rc-staging.test.vas.com/login/");
+    await expect(this.page).not.toHaveURL("/login?redirect=%2F");
     await expect(this.signInButton).toHaveCount(0);
   }
 }
