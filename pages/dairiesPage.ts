@@ -2,6 +2,7 @@ import { expect, type APIResponse, type Locator, type Page } from "@playwright/t
 import type { DairiesSearchParams } from "../types/dairies.types";
 
 export class DairiesPage {
+  private readonly expectedPath = "/genetics/alta/dairies";
   constructor(private readonly page: Page) {}
 
   private get searchInput(): Locator {
@@ -17,11 +18,11 @@ export class DairiesPage {
   }
 
   async goto(): Promise<void> {
-    await this.page.goto("/genetics/alta/dairies");
+    await this.page.goto(this.expectedPath);
   }
 
   async assertOnDairiesPage(): Promise<void> {
-    await expect(this.page).toHaveURL("/genetics/alta/dairies");
+    await expect(this.page).toHaveURL(this.expectedPath);
     await expect(this.searchInput).toBeVisible();
   }
 
@@ -35,13 +36,17 @@ export class DairiesPage {
       return r.request().method() === "GET" && r.url().includes("/dairies");
     });
 
-    await expect(response).toBeOK();
     expect(response.status()).toBe(params.expectedStatus);
     return response;
   }
 
   async assertResultsVisible(): Promise<void> {
     await expect(this.mainContent).toBeVisible();
+  }
+
+  async assertEmptyStateVisible(params: Pick<DairiesSearchParams, "term">): Promise<void> {
+    await expect(this.mainContent).toBeVisible();
+    await expect(this.mainContent).toContainText(params.term);
   }
 
   async assertNoBrokenImagesInMainContent(): Promise<void> {
