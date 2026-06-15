@@ -28,11 +28,11 @@ test.describe("FC-TC-100 - WeighComp integration status", () => {
     await myHomePage.selectArtAutomationIconHolsteins();
 
     // Assert:
-    // This test requires live UI exploration to derive exact locators for:
+    // NOTE: This test is currently a scaffold. It must be completed after live UI exploration
+    // to derive exact locators for:
     // - Dairy module navigation
     // - Integration Status menu item
     // - WeighComp card, HEALTHY label, error indicator, and Last beat timestamp
-    // Exploration is currently blocked because BASE_URL is not configured in the environment.
-    test.fail(true, "Blocked: BASE_URL not configured; Integration Status page locators must be derived from live snapshot.");
+    test.skip(true, "Blocked: requires live UI exploration to derive Integration Status locators.");
   });
 });
