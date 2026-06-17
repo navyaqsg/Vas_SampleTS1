@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import type { DairySelectionParams } from "../types/dairy.types";
 
 export class MyHomePage {
   constructor(private readonly page: Page) {}
@@ -41,7 +42,7 @@ export class MyHomePage {
     return (dairyName: string) => this.page.getByRole("link", { name: dairyName });
   }
 
-  async selectDairy(params: { dairyName: string }): Promise<void> {
+  async selectDairy(params: DairySelectionParams): Promise<void> {
     await expect(this.dairyListLink(params.dairyName)).toBeVisible();
     await this.dairyListLink(params.dairyName).click();
   }
