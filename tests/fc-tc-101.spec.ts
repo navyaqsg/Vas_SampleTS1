@@ -24,8 +24,8 @@ test.describe("FC-TC-101 - WeighComp integration status null lastSyncReceivedDat
     await loginPage.assertLoggedIn();
 
     // Act: select dairy
-    await myHomePage.openDairySelector();
-    await myHomePage.selectArtAutomationIconHolsteins();
+    await myHomePage.openSelectDairy();
+    await myHomePage.selectDairy({ dairyName: "ART Automation Icon Holsteins" });
 
     // Assert:
     // Blocked until live exploration can be performed to derive exact locators and the heartbeats API URL.
