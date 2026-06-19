@@ -24,8 +24,8 @@ test.describe("FC-TC-100 - WeighComp integration status", () => {
     await loginPage.assertLoggedIn();
 
     // Act: select dairy
-    await myHomePage.openDairySelector();
-    await myHomePage.selectArtAutomationIconHolsteins();
+    await myHomePage.openSelectDairy();
+    await myHomePage.selectDairy({ dairyName: "ART Automation Icon Holsteins" });
 
     // Assert:
     // NOTE: This test is currently a scaffold. It must be completed after live UI exploration
